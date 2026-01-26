@@ -1,23 +1,26 @@
 # syntax=docker/dockerfile:1
 
-FROM eclipse-temurin:21-jdk as base
+FROM eclipse-temurin:21-jdk AS runtime-base
+WORKDIR /app
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# Only what's needed to run Playwright CLI
+COPY .mvn/ .mvn
+COPY mvnw pom.xml ./
+RUN ./mvnw exec:java \
+      -Dexec.mainClass=com.microsoft.playwright.CLI \
+      -Dexec.args="install-deps"
+RUN ./mvnw exec:java \
+      -Dexec.mainClass=com.microsoft.playwright.CLI \
+      -Dexec.args="install chromium"
+
+FROM runtime-base AS build
 WORKDIR /app
 COPY .mvn/ .mvn
 COPY mvnw pom.xml ./
 RUN ./mvnw dependency:resolve
 COPY src ./src
-
-RUN ["./mvnw", "exec:java", "-e", "-D", "exec.mainClass=com.microsoft.playwright.CLI", "-D", "exec.args='install-deps'"]
-
-FROM base as test
-RUN ["./mvnw", "test"]
-
-FROM base as development
-CMD ["./mvnw", "spring-boot:run", "-Dspring-boot.run.jvmArguments='-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:8000'"]
-
-FROM base as build
 RUN ./mvnw package
 
-FROM eclipse-temurin:21-jdk as production
+FROM runtime-base AS production
 COPY --from=build /app/target/dunca-scraper-*.jar /dunca-scraper.jar
 CMD ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "/dunca-scraper.jar"]
