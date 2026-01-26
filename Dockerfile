@@ -7,6 +7,8 @@ COPY mvnw pom.xml ./
 RUN ./mvnw dependency:resolve
 COPY src ./src
 
+RUN ["./mvnw", "exec:java", "-e", "-D", "exec.mainClass=com.microsoft.playwright.CLI", "-D", "exec.args='install-deps'"]
+
 FROM base as test
 RUN ["./mvnw", "test"]
 
